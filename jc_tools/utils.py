@@ -219,60 +219,95 @@ def measure_time(function):
     return timed_function
 
 
-def store_output(function):
+def store_using_pickle(what, where):
     '''
-    Memoization decorator to store output of the function inside
-    a chosen folder (eg. /tmp/function_outputs/)
+    '''
+    with open(where, 'wb') as ofile:
+        pickle.dump(what, ofile)
+    return
+
+def read_using_pickle(where):
+    '''
     '''
 
-    dirpath = '/tmp/tmp_function_outputs'
-    if not os.path.isdir(dirpath):
-        os.makedirs(dirpath)
+    with open(where, 'rb') as ifile:
+        output = pickle.load(ifile)
 
-    stored_outputs_fps = glob.glob(os.path.join(dirpath, '*'))
-    stored_outputs_fns = [ os.path.basename(fp) for fp in stored_outputs_fps ]
+    return output
 
-    stored_outputs = { func_hash: fp
-        for func_hash, fp in zip(stored_outputs_fns, stored_outputs_fps) }
+def read_npy(where):
+    arr = np.load(where)
+    try:
+        arr = arr.item()
+    except ValueError:
+        pass
+    return arr
 
-    @wraps(function)
-    def wrapped_function(*args, **kwargs):
+def store_npy(what, where):
+    np.save(where, what)
+    os.rename('{}.npy'.format(where), where)
+    return
+
+
+def store_output(storing_function=store_using_pickle, reading_function=read_using_pickle):
+    '''
+    TODO turn into Class based decorator bc too many parameters
+         http://scottlobdell.me/2015/04/decorators-arguments-python/
+    '''
+
+    def decorator(function):
         '''
-        /!\ TODO doesn't check hash of arguments, just str
-        TODO also check hash of function code, but exclude comments and logging
-        TODO capture time it took to compute output
-        TODO make it work reliably with sets, dicts, etc.
+        Memoization decorator to store output of the function inside
+        a chosen folder (eg. /tmp/function_outputs/)
         '''
 
-        function_name = function.__name__
-        function_args = str(args) + str(kwargs)
+        dirpath = '/tmp/tmp_function_outputs'
+        if not os.path.isdir(dirpath):
+            os.makedirs(dirpath)
 
-        string_to_hash = function_name + function_args
-        function_hash = hash_string(string_to_hash)
-        ## TODO doesn't work with lists, sets, dicts etc., without ordering them
+        stored_outputs_fps = glob.glob(os.path.join(dirpath, '*'))
+        stored_outputs_fns = [ os.path.basename(fp) for fp in stored_outputs_fps ]
 
-        output_fp = stored_outputs.get(function_hash)
-        output_is_stored = bool(output_fp)
+        stored_outputs = { func_hash: fp
+            for func_hash, fp in zip(stored_outputs_fns, stored_outputs_fps) }
 
-        if output_is_stored:
-            log.info('Fetching output of function %s from file at %s' % (function_name, output_fp))
+        @wraps(function)
+        def wrapped_function(*args, **kwargs):
+            '''
+            /!\ TODO doesn't check hash of arguments, just str
+            TODO also check hash of function code, but exclude comments and logging
+            TODO capture time it took to compute output
+            TODO make it work reliably with sets, dicts, etc.
+            '''
 
-            with open(output_fp, 'rb') as ifile:
-                output = pickle.load(ifile)
+            function_name = function.__name__
+            function_args = str(args) + str(kwargs)
 
-        else:
-            output_fp = os.path.join(dirpath, str(function_hash))
-            log.info('Computing output of function %s and saving at %s' % (function_name, output_fp))
-            output = function(*args, **kwargs)
+            string_to_hash = function_name + function_args
+            function_hash = hash_string(string_to_hash)
+            ## TODO doesn't work with lists, sets, dicts etc., without ordering them
 
-            with open(output_fp, 'wb') as ofile:
-                pickle.dump(output, ofile)
+            output_fp = stored_outputs.get(function_hash)
+            output_is_stored = bool(output_fp)
+
+            if output_is_stored:
+                log.info('Fetching output of function %s from file at %s' % (function_name, output_fp))
+
+                output = reading_function(where=output_fp)
+
+            else:
+                output_fp = os.path.join(dirpath, str(function_hash))
+                log.info('Computing output of function %s and saving at %s' % (function_name, output_fp))
+                output = function(*args, **kwargs)
+
+                storing_function(what=output, where=output_fp)
                 log.info('Saved output of function %s at %s' % (function_name, output_fp))
 
-        return output
+            return output
 
-    return wrapped_function
+        return wrapped_function
 
+    return decorator
 
 def get_filepath(server_fp: str, to_path: Optional[str]=None, force_download: bool=False) -> str:
     '''
