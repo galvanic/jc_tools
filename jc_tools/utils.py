@@ -181,9 +181,43 @@ def hash_string(string):
 
     return function_hash
 
-
 ### decorators / practical / caching
 
+class MacOSFile():
+    '''
+    from https://stackoverflow.com/questions/31468117/python-3-can-pickle-handle-byte-objects-larger-than-4gb
+    '''
+
+    def __init__(self, f):
+        self.f = f
+
+    def __getattr__(self, item):
+        return getattr(self.f, item)
+
+    def read(self, n):
+        # print("reading total_bytes=%s" % n, flush=True)
+        if n >= (1 << 31):
+            buffer = bytearray(n)
+            idx = 0
+            while idx < n:
+                batch_size = min(n - idx, 1 << 31 - 1)
+                # print("reading bytes [%s,%s)..." % (idx, idx + batch_size), end="", flush=True)
+                buffer[idx:idx + batch_size] = self.f.read(batch_size)
+                # print("done.", flush=True)
+                idx += batch_size
+            return buffer
+        return self.f.read(n)
+
+    def write(self, buffer):
+        n = len(buffer)
+        print("writing total_bytes=%s..." % n, flush=True)
+        idx = 0
+        while idx < n:
+            batch_size = min(n - idx, 1 << 31 - 1)
+            print("writing bytes [%s, %s)... " % (idx, idx + batch_size), end="", flush=True)
+            self.f.write(buffer[idx:idx + batch_size])
+            print("done.", flush=True)
+            idx += batch_size
 
 def import_module(module_filepath, function_name):
     '''
@@ -308,6 +342,10 @@ def store_output(storing_function=store_using_pickle, reading_function=read_usin
         return wrapped_function
 
     return decorator
+
+storing_function = lambda what, where: pickle.dump(what, MacOSFile(open(where, 'wb')), protocol=pickle.HIGHEST_PROTOCOL)
+
+reading_function = lambda where: pickle.load(MacOSFile(open(where, 'rb')))
 
 def get_filepath(server_fp: str, to_path: Optional[str]=None, force_download: bool=False) -> str:
     '''
