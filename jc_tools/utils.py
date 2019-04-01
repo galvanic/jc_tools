@@ -151,6 +151,12 @@ def choose_subsample_if_possible(iterable, amount):
     except ValueError:
         return iterable
 
+def invert_mapping(mapping: dict) -> dict:
+    '''
+    /!\ assumption that values are unique ! no checks done.
+    '''
+    inverted = { value: key for key, values in mapping.items() for value in values }
+    return inverted
 
 ### ML-specific processing
 
