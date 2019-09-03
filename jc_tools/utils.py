@@ -18,14 +18,15 @@ import hashlib
 import subprocess
 from itertools import tee
 from itertools import chain
+from typing import Optional
 from functools import wraps
 from itertools import islice
 from itertools import groupby
 from collections import Counter
 from collections import OrderedDict
+from contextlib import contextmanager
 from collections import MutableMapping
 
-from typing import Optional
 
 import logging
 log = logging.getLogger(__name__)
@@ -43,7 +44,6 @@ def flatten(iterable, exclude_strings=True):
                      for element in iterable )
     return list(chain.from_iterable(iterable))
 
-
 def flatten_dict(dictionary):
     '''
     turn into list of tuples
@@ -54,7 +54,6 @@ def flatten_dict(dictionary):
                            for value in values ]
 
     return key_value_list
-
 
 def flatten_keys(dictionary, parent_key='', sep='.'):
     '''
@@ -73,7 +72,6 @@ def flatten_keys(dictionary, parent_key='', sep='.'):
             items.append((new_key, value))
 
     return dict(items)
-
 
 def group_by(iterable, key, keep=lambda x: x, ordered=False, sort_key=None):
     '''
@@ -96,19 +94,15 @@ def group_by(iterable, key, keep=lambda x: x, ordered=False, sort_key=None):
 
     return grouped
 
-
 def group_sequentially(iterable, group_size):
     '''s -> (s0, s1), (s2, s3), (s4, s5), ...'''
     return zip(*(iter(iterable),) * group_size)
 
-
 def pairwise(iterable):
     return group_sequentially(iterable, 2)
 
-
 def get_duplicates(iterable):
     return [ item for item, count in Counter(iterable).items() if count > 1 ]
-
 
 def partition(iterable, condition=bool):
     '''
@@ -117,7 +111,6 @@ def partition(iterable, condition=bool):
     a, b = tee((condition(item), item) for item in iterable)
     return ([ item for cond, item in a if not cond ],
             [ item for cond, item in b if cond ])
-
 
 def sliding_window(sequence, n=2, fill_value_start=None, fill_value_end=None):
     '''
@@ -142,7 +135,6 @@ def sliding_window(sequence, n=2, fill_value_start=None, fill_value_end=None):
         result = result[1:] + (element,)
         yield result
 
-
 def choose_subsample_if_possible(iterable, amount):
     ''' '''
 
@@ -160,7 +152,6 @@ def invert_mapping(mapping: dict) -> dict:
 
 ### ML-specific processing
 
-
 def onehot(array, num_classes):
     '''
     array: vector or 1D array of category numbers
@@ -168,13 +159,10 @@ def onehot(array, num_classes):
     onehot_labels = np.eye(num_classes)[array]
     return onehot_labels
 
-
 ### id generators / reliability
-
 
 def get_time_id(time_format='%y%m%d%H%M%S'):
     return time.strftime(time_format, time.localtime(time.time()))
-
 
 def hash_string(string):
     ''' '''
@@ -240,7 +228,6 @@ def import_module(module_filepath, function_name):
 
     return function
 
-
 def measure_time(function):
 
     @wraps(function)
@@ -257,7 +244,12 @@ def measure_time(function):
         return result
 
     return timed_function
-
+@contextmanager
+def time_indented(logging_identifier):
+    started_at = time.time()
+    yield
+    elapsed = time.time() - started_at
+    log.debug('{0}: {1} ms'.format(logging_identifier, elapsed))
 
 def store_using_pickle(what, where):
     '''
@@ -287,7 +279,6 @@ def store_npy(what, where):
     np.save(where, what)
     os.rename('{}.npy'.format(where), where)
     return
-
 
 def store_output(storing_function=store_using_pickle, reading_function=read_using_pickle):
     '''
@@ -401,9 +392,7 @@ def get_filepath(server_fp: str, to_path: Optional[str]=None, force_download: bo
 
     return to_path
 
-
 ### experiment logging / etc. organisation
-
 
 def log_repo_info(repo_path, show_changes=True):
     '''
@@ -435,7 +424,6 @@ def log_repo_info(repo_path, show_changes=True):
         log.warning('not in a git repo, cannot track version')
 
     return
-
 
 if __name__ == '__main__':
 
