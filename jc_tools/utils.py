@@ -57,13 +57,13 @@ def flatten_dict(dictionary):
 
 def flatten_keys(dictionary, parent_key='', sep='.'):
     '''
-    Copied code from https://stackoverflow.com/questions/6027558/flatten-nested-python-dictionaries-compressing-keys/6027615#6027615
+    Adapted from code at https://stackoverflow.com/questions/6027558/flatten-nested-python-dictionaries-compressing-keys/6027615#6027615
     '''
 
     items = []
 
     for key, value in dictionary.items():
-        new_key = parent_key + sep + key if parent_key else key
+        new_key = f'{parent_key}{sep}{key}' if parent_key else key
 
         if isinstance(value, MutableMapping):
             items.extend(flatten_keys(value, new_key, sep=sep).items())
